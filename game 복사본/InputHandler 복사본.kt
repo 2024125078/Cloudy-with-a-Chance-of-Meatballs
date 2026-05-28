@@ -53,8 +53,10 @@ object InputHandler {
     val DOWN = Input.Keys.DOWN
     val SPACE = Input.Keys.SPACE
     val ESCAPE = Input.Keys.ESCAPE
+    val RESTART = Input.Keys.R
     val W = Input.Keys.W
     val A = Input.Keys.A
     val S = Input.Keys.S
     val D = Input.Keys.D
+    val R = Input.Keys.R
 }
