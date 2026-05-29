@@ -54,6 +54,7 @@ object InputHandler {
     val SPACE = Input.Keys.SPACE
     val ESCAPE = Input.Keys.ESCAPE
     val RESTART = Input.Keys.R
+    val ENTER = Input.Keys.ENTER
     val W = Input.Keys.W
     val A = Input.Keys.A
     val S = Input.Keys.S

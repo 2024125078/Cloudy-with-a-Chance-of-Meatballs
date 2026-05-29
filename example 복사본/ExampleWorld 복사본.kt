@@ -1,6 +1,7 @@
 package com.oop.game.example
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Input
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
@@ -38,9 +39,12 @@ class ExampleWorld(
 ) : GameWorld(screenWidth, screenHeight, worldWidth, worldHeight) {
 
     private enum class GameState {
+        START_SCREEN,
         IN_PLAY,
         GAME_OVER
     }
+
+    private var state = GameState.START_SCREEN
     //모든 캐릭터들을 여러개 담을 리스트
     private val players = mutableListOf<ExampleEnemy>()
     //캐릭터의 이미지를 한 묶음으로 담을 데이터 통
@@ -100,6 +104,8 @@ class ExampleWorld(
 
     private var score = 0 // 점수 변수
     private var gameTime= 180f // 제한시간 변수
+    private var currentStage = 1 // 현재 스테이지 번호
+    private var startTimer = 1f
 
     // GameOver 이후 랭킹 구현 로컬 데이터 저장소
     private val prefs = Gdx.app.getPreferences("MyGamePreference")
@@ -286,13 +292,15 @@ class ExampleWorld(
         add(enemy)
     }
     // 현재 게임 상태 — 입력/충돌에 따라 IN_PLAY ↔ GAME_OVER 로 전환된다.
-    private var state = GameState.IN_PLAY
+    // private var state = GameState.IN_PLAY
     private val St1Texture = Texture(Gdx.files.internal("st1_bg.png"))
     private val St2Texture = Texture(Gdx.files.internal("st2_bg.png"))
     private val St3Texture = Texture(Gdx.files.internal("st3_bg.png"))
+
+
+    private val startLogoTexture = Texture(Gdx.files.internal("gamestart_bg.png"))
     private val gameOverTexture = Texture(Gdx.files.internal("gameover_bg.png"))
 
-    private var currentStage = 1 // 현재 스테이지 번호
    // private var stageTimer = 0f // 스테이지 타이머
 
 //    private val bgColorDark = Color(1f, 1f, 1f, 1f)
@@ -305,9 +313,18 @@ class ExampleWorld(
 
     override fun update(delta: Float) {
         when (state) {
+            GameState.START_SCREEN -> updateStartScreen()
             GameState.IN_PLAY -> updateInPlay(delta)
             GameState.GAME_OVER -> updateGameOver()
         }
+    }
+    private fun updateStartScreen() {
+        if (Gdx.input.isKeyJustPressed(InputHandler.ENTER)){
+            startGame()
+        }
+    }
+    private fun startGame() {
+        state = GameState.IN_PLAY
     }
 
     /** IN_PLAY 상태에서 매 프레임 처리 — 카메라 이동, 객체 갱신, 충돌 체크. */
@@ -700,34 +717,66 @@ class ExampleWorld(
             batch.color = Color.WHITE
 
             // 현재 스테이지에 따라 다른 배경 변경
-            val currentBg = if (currentStage == 1) St1Texture
-            else if(currentStage == 2) St2Texture else St3Texture
-
+            val currentBg = when(state){
+                GameState.START_SCREEN -> St1Texture
+                GameState.IN_PLAY -> {
+                    if (currentStage == 1) St1Texture
+                    else if (currentStage == 2) St2Texture
+                    else St3Texture
+                }
+                GameState.GAME_OVER -> gameOverTexture
+            }
             // 화면 (0,0) 위치부터 화면 전체 너비/높이만큼 그리기
             batch.draw(currentBg, 0f, 0f, screenWidth, screenHeight)
-
-
     }
 
     override fun render(delta: Float) {
+
         super.render(delta)
 
-        // ── 상태별로 그리는 것이 다름 ──
-        when (state) {
-            GameState.IN_PLAY -> {
-                drawHud()
-                drawGameStartOverlay(delta)
-            }
-                // 플레이 중에는 추가로 그릴 것 없음
-            GameState.GAME_OVER -> {
-                batch.begin()
-                batch.color = Color.WHITE
-                batch.draw(gameOverTexture, 0f, 0f, screenWidth, screenHeight)
-                batch.end()
+        if (state == GameState.IN_PLAY) {
+            //super.render(delta)
+            drawHud()
+            drawGameStartOverlay(delta)
+        } else {
+            batch.begin()
+            drawBackground(batch)
 
+            if (state == GameState.START_SCREEN) {
+                batch.draw(
+                    startLogoTexture,
+                    0f,
+                    0f,
+                    screenWidth,
+                    screenHeight
+                )
+            }
+            batch.end()
+
+            if(state == GameState.START_SCREEN) {
+                drawStartScreenOverlay()
+            } else if (state == GameState.GAME_OVER) {
                 drawGameOverOverlay()
             }
         }
+    }
+    private fun drawStartScreenOverlay() {
+
+        drawTextOnScreen(
+            text = "Press ENTER to Start",
+            x = screenWidth / 2f - 130f,
+            y = screenHeight * 0.1f,
+            color = Color.WHITE,
+            scale = 2.0f
+        )
+
+        drawTextOnScreen(
+            text = "Manual: Use the left and right keys to eat the food",
+            x = screenWidth / 2f - 200f,
+            y = screenHeight * 0.05f,
+            color = Color.LIGHT_GRAY,
+            scale = 1.5f
+        )
     }
 
     /** 항상 화면에 표시되는 정보 — HP 표시와 월드 중앙 표지. */
@@ -773,7 +822,6 @@ class ExampleWorld(
         }
 
     }
-    private var startTimer = 1f
     //게임 시작 시 화면에 띄우는 안내 메세지 => 3초 후 사라지게 만들어야함...
     private fun drawGameStartOverlay(delta: Float) {
         if(startTimer > 0) {
@@ -797,63 +845,63 @@ class ExampleWorld(
     /** 게임 오버 시 화면 중앙에 띄우는 안내 메시지. */
     private fun drawGameOverOverlay() {
         // 좌측 우측 x값 고정
-        val leftX = screenWidth / 4f - 80f
-        val rightX = screenWidth * 0.7f - 50f
+        val leftX = screenWidth * 0.25f
+        val rightX = screenWidth * 0.72f
 
         drawTextOnScreen(
             text = "Game Over!",
-            x = leftX - 30f,
-            y = screenHeight / 2f + 130f,
+            x = leftX - 140f,
+            y = screenHeight / 2f + 140f,
             color = Color.RED,
-            scale = 2f
+            scale = 3f
         )
 
         drawTextOnScreen(
             text = "Final Score: $score",
-            x = leftX - 20f,
-            y = screenHeight / 2f + 60f,
-            color = Color.WHITE,
-            scale = 1.5f
+            x = leftX - 120f,
+            y = screenHeight / 2f + 50f,
+            color = Color.BLACK,
+            scale = 2f
         )
 
         drawTextOnScreen(
             text = "Press R To Restart",
-            x = leftX - 5f,
-            y = screenHeight / 2f - 40f,
+            x = leftX - 110f,
+            y = screenHeight / 2f - 50f,
             color = Color.GREEN,
             scale = 1.5f
         )
 
         drawTextOnScreen(
             text = "Press ESC to exit",
-            x = leftX - 5f,
-            y = screenHeight / 2 - 80f,
-            color = Color.WHITE,
-            scale = 1f
+            x = leftX - 105f,
+            y = screenHeight / 2 - 110f,
+            color = Color.GRAY,
+            scale = 1.5f
         )
 
         // 랭킹 시작 위치
         var bottomY = screenHeight / 2f + 180f
 
         drawTextOnScreen(
-            text = "=== RANK ===",
-            x = rightX - 30f,
+            text = "===== RANK =====",
+            x = rightX - 80f,
             y = bottomY,
-            color = Color.GREEN,
-            scale = 1.2f
+            color = Color.BLACK,
+            scale = 2f
         )
 
         if(rankingText.isNotEmpty()) {
             val rankingLines = rankingText.split("\n")
             for(line in rankingLines) {
-                bottomY -= 32f // 랭킹 간격
+                bottomY -= 38f // 랭킹 간격
 
                 drawTextOnScreen(
                     text = line,
-                    x = rightX,
+                    x = rightX + 7f,
                     y = bottomY,
-                    color = Color.WHITE,
-                    scale = 1.1f
+                    color = Color.GRAY,
+                    scale = 1.5f
                 )
             }
         }
@@ -865,6 +913,7 @@ class ExampleWorld(
         St1Texture.dispose()
         St2Texture.dispose()
         St3Texture.dispose()
+        startLogoTexture.dispose()
         gameOverTexture.dispose()
     }
 
